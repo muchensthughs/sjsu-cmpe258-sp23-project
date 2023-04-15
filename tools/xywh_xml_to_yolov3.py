@@ -13,10 +13,10 @@ is_subfolder = False
 class_names = []
 
 def xywh_to_minmax(x, y, w, h):
-    xmin = x - w/2
-    ymin = y - h/2
-    xmax = x + w/2
-    ymax = y + h/2
+    xmin = x 
+    ymin = y
+    xmax = x + w
+    ymax = y + h
     return [xmin, ymin, xmax, ymax]
 
 # return extracted info from one xml file
@@ -34,10 +34,10 @@ def parseSingleXML(xml_file):
         bbox = obj.find("bounds")
         print(bbox.attrib)
         [xmin, ymin, xmax, ymax] = xywh_to_minmax(float(bbox.attrib["x"]), float(bbox.attrib["y"]), float(bbox.attrib["width"]), float(bbox.attrib["height"]))
-        bbox_info = (str(int(xmin))+','
-                      +str(int(ymin))+','
-                      +str(int(xmax))+','
-                      +str(int(ymax))+','
+        bbox_info = (str(xmin)+','
+                      +str(ymin)+','
+                      +str(xmax)+','
+                      +str(ymax)+','
                       +str(class_id))
         res += ' ' + bbox_info
     return res
