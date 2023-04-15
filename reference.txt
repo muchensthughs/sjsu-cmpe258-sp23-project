@@ -1,0 +1,3 @@
+https://cmp.felk.cvut.cz/~breslmar/flowcharts_offline/
+
+Bresler M., Průša D., Hlaváč V.: Recognizing Off-line Flowcharts by Reconstructing Strokes and Using On-line Recognition Techniques. Yet unpublished manuscript.
