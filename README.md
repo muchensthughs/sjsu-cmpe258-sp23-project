@@ -25,7 +25,10 @@ Dataset preparation doc: https://docs.google.com/document/d/1iY2F0LpL9rOEVAxZMaG
 
 Enter in the terminal ```tensorboard --logdir=log``` and then navigate to http://localhost:6006/
 ### Training Loss
-![Training Loss](./screenshots/train.JPG)
+![Training Loss](./images/train.JPG)
 
 ### Validation Loss
-![Validation Loss](./screenshots/val.JPG)
+![Validation Loss](./images/val.JPG)
+
+### Sample Classification
+![Sample Classification](./images/sample_classification.png)
