@@ -26,18 +26,18 @@ def parseSingleXML(xml_file):
     symbols = root.find("symbols")
     res = ""
     for i, obj in enumerate(symbols.iter("symbol")):
-        print(i, obj.attrib["name"])
+        # print(i, obj.attrib["name"])
         class_name = obj.attrib["name"]
         if class_name not in class_names:
             class_names.append(class_name)
         class_id = class_names.index(class_name)
         bbox = obj.find("bounds")
-        print(bbox.attrib)
+        # print(bbox.attrib)
         [xmin, ymin, xmax, ymax] = xywh_to_minmax(float(bbox.attrib["x"]), float(bbox.attrib["y"]), float(bbox.attrib["width"]), float(bbox.attrib["height"]))
-        bbox_info = (str(xmin)+','
-                      +str(ymin)+','
-                      +str(xmax)+','
-                      +str(ymax)+','
+        bbox_info = (str(int(xmin))+','
+                      +str(int(ymin))+','
+                      +str(int(xmax))+','
+                      +str(int(ymax))+','
                       +str(class_id))
         res += ' ' + bbox_info
     return res
@@ -45,7 +45,8 @@ def parseSingleXML(xml_file):
 def ParseAllXML(xml_file_folder, file, img_folder):
     for xml_file in glob.glob(xml_file_folder+'/*.xml'):
         img_name = os.path.basename(xml_file).split(".")[0]
-        img_file = os.path.join(img_folder, img_name + '.png')
+        # img_file = os.path.join(img_folder, img_name + '.png')
+        img_file = img_folder+"/"+img_name+".png"
         bboxes = parseSingleXML(xml_file)
         res = img_file + bboxes
         file.write(res + '\n')
