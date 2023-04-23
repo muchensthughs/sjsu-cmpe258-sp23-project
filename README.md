@@ -31,4 +31,4 @@ Enter in the terminal ```tensorboard --logdir=log``` and then navigate to http:/
 ![Validation Loss](./images/val.JPG)
 
 ### Sample Classification
-![Sample Classification](./images/sample_classification.png)
+![Sample Classification](./images/sample.png)
