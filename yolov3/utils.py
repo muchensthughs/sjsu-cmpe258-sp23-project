@@ -128,6 +128,7 @@ def image_preprocess(image, target_size, gt_boxes=None):
 
 
 def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False):   
+    objects = []
     NUM_CLASS = read_class_names(CLASSES)
     num_classes = len(NUM_CLASS)
     image_h, image_w, _ = image.shape
@@ -153,6 +154,8 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
         # put object rectangle
         cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, bbox_thick*2)
 
+        objects.append([x1, y1, x2-x1, y2-y1, NUM_CLASS[class_ind], score])  # [x, y, w, h, class, confidence]
+
         if show_label:
             # get text label
             score_str = " {:.2f}".format(score) if show_confidence else ""
@@ -175,7 +178,7 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
             cv2.putText(image, label, (x1, y1-4), cv2.FONT_HERSHEY_COMPLEX_SMALL,
                         fontScale, Text_colors, bbox_thick, lineType=cv2.LINE_AA)
 
-    return image
+    return image, objects
 
 
 def bboxes_iou(boxes1, boxes2):
@@ -302,7 +305,7 @@ def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLAS
     bboxes = postprocess_boxes(pred_bbox, original_image, input_size, score_threshold)
     bboxes = nms(bboxes, iou_threshold, method='nms')
 
-    image = draw_bbox(original_image, bboxes, CLASSES=CLASSES, rectangle_colors=rectangle_colors)
+    image, objects = draw_bbox(original_image, bboxes, CLASSES=CLASSES, rectangle_colors=rectangle_colors)
     # CreateXMLfile("XML_Detections", str(int(time.time())), original_image, bboxes, read_class_names(CLASSES))
 
     if output_path != '': cv2.imwrite(output_path, image)
@@ -314,7 +317,7 @@ def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLAS
         # To close the window after the required kill value was provided
         cv2.destroyAllWindows()
         
-    return image
+    return image, original_image, objects
 
 def Predict_bbox_mp(Frames_data, Predicted_data, Processing_times):
     gpus = tf.config.experimental.list_physical_devices('GPU')
