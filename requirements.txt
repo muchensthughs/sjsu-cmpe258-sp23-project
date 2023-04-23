@@ -3,7 +3,7 @@ scipy>=1.4.1
 wget>=3.2
 seaborn>=0.10.0
 tensorflow
-opencv-python==4.4.0.46
+opencv-contrib-python
 tqdm==4.48.0
 pandas
 awscli
