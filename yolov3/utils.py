@@ -126,8 +126,58 @@ def image_preprocess(image, target_size, gt_boxes=None):
         gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
         return image_paded, gt_boxes
 
+# Solution from: https://stackoverflow.com/questions/66718462/how-to-detect-different-types-of-arrows-in-image
+def arrow_kmeans(y, x):
+    y = y.reshape(-1, 1)
+    x = x.reshape(-1, 1)
+    z = np.hstack((x, y))
+    points = np.float32(z)
 
-def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False):   
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+    _, label, center = cv2.kmeans(points, 2, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    count1 = np.count_nonzero(label)
+    count2 = np.shape(label)[0] - count1
+
+    maxCluster = 0
+    if count1 > count2:
+        maxCluster = 1
+
+    head = None
+    tail = None
+    rows, cols = center.shape
+    if cols >= 2:
+        for i in range(rows):
+            pointX = int(center[i][0])
+            pointY = int(center[i][1])
+            if i == maxCluster:
+                head = (pointX, pointY)
+            else:
+                tail = (pointX, pointY)
+    return head, tail
+
+# Solution from: https://stackoverflow.com/questions/66718462/how-to-detect-different-types-of-arrows-in-image
+def get_arrow_head_tail(roi):
+    roi = 255 - cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    pad = 5
+    roi = cv2.copyMakeBorder(roi, pad, pad, pad, pad, cv2.BORDER_CONSTANT)
+    roi = cv2.ximgproc.thinning(roi, None, 1)
+    _, roi = cv2.threshold(roi, 127, 10, cv2.THRESH_BINARY)
+
+    kernel = np.array([[1, 1, 1],
+                       [1, 10, 1],
+                       [1, 1, 1]])
+
+    roi = cv2.filter2D(roi, -1, kernel)
+    roi = np.where(roi == 110, 225, 0)
+    roi = roi.astype(np.uint8)
+    y, x = roi.nonzero()
+    if len(x) > 0 or len(y) > 0:
+        head, tail = arrow_kmeans(y, x)
+        if head is not None and tail is not None:
+            return (head, tail)
+    return None
+
+def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False):
     objects = []
     NUM_CLASS = read_class_names(CLASSES)
     num_classes = len(NUM_CLASS)
@@ -151,10 +201,19 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
         fontScale = 0.75 * bbox_thick
         (x1, y1), (x2, y2) = (coor[0], coor[1]), (coor[2], coor[3])
 
+        if NUM_CLASS[class_ind] == 'arrow':
+            arrow_info = get_arrow_head_tail(image[y1:y2, x1:x2])
+            (hx, hy), (tx, ty) = arrow_info[0], arrow_info[1]
+            cv2.circle(image, (x1+hx, y1+hy), 10, (0, 0, 255), -1) # red head
+            cv2.circle(image, (x1+tx, y1+ty), 10, (0, 255, 0), -1) # green tail
+            # (x, y, w, h, class, confidence, head_coord, tail_coord)
+            objects.append((x1, y1, x2 - x1, y2 - y1, NUM_CLASS[class_ind], score, (x1+hx, y1+hy), (x1+tx, y1+ty)))
+        else:
+            # (x, y, w, h, class, confidence)
+            objects.append((x1, y1, x2-x1, y2-y1, NUM_CLASS[class_ind], score))
+
         # put object rectangle
         cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, bbox_thick*2)
-
-        objects.append([x1, y1, x2-x1, y2-y1, NUM_CLASS[class_ind], score])  # [x, y, w, h, class, confidence]
 
         if show_label:
             # get text label
