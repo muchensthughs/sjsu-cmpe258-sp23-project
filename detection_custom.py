@@ -14,7 +14,9 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import cv2
 import numpy as np
 import tensorflow as tf
-from yolov3.utils import detect_image, detect_realtime, detect_video, Load_Yolo_model, detect_video_realtime_mp
+from yolov3.utils import detect_image, detect_realtime, detect_video, \
+                         Load_Yolo_model, detect_video_realtime_mp, \
+                         get_relationships
 from yolov3.configs import *
 from yolov3.yolov4 import Create_Yolo
 
@@ -36,4 +38,13 @@ else:
 yolo = Create_Yolo(input_size=YOLO_INPUT_SIZE, CLASSES=TRAIN_CLASSES)
 yolo.load_weights("./checkpoints/yolov4_custom_Tiny")
 image, original_image, objects = detect_image(yolo, image_path, "out.png", input_size=YOLO_INPUT_SIZE, show=False, CLASSES=TRAIN_CLASSES, rectangle_colors=(255,0,0))
-print(objects) # [[x, y, w, h, class, confidence]...]
+
+# print("Objects:")
+# print(objects) # [(id, x1, y1, x2, y2, class, confidence)...]
+
+text2shape, arrow2shape = get_relationships(objects)
+
+print("Text-shape relationships")
+print(text2shape)
+print("Arrow-shape relationships")
+print(arrow2shape)
