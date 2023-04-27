@@ -212,12 +212,15 @@ def get_relationships(objects):
                 text2shape[tID] = sID
                 break
 
+    # get middle point of each shape
+    # can optimize by placing this above in the other shape FOR loop, but eh, whatever...
+    mids = [(shape[0], get_midpoint(shape)) for shape in shapes]  # (shapeID, shapeMiddle_coord)
+
     # match arrow to shapes
     # (id, x1, y1, x2, y2, class, confidence, head, tail)
     for arrow in arrows:
         aID, head, tail = arrow[0], arrow[7], arrow[8]
-        
-        mids = [(shape[0], get_midpoint(shape)) for shape in shapes] # (shapeID, shapeMiddle_coord)
+
         dists = {} # [shapeID: (toHeadDist, toTailDist)
         for mid in mids:
             dists[mid[0]] = (euclidean(head, mid[1]), euclidean(tail, mid[1]))
