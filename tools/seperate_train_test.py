@@ -8,6 +8,8 @@ DEST_TRAIN_IMAGE_FOLDER = "FlowChart/FlowChart_train"
 DEST_TEST_IMAGE_FOLDER = "FlowChart/FlowChart_test"
 DEST_ANNOTATION_TRAIN_FOLDER = "FlowChart/FlowChart_annotation/train"
 DEST_ANNOTATION_TEST_FOLDER = "FlowChart/FlowChart_annotation/test"
+ANNOTATION_TRAIN_FILE = "FlowChart/FlowChart_train.txt"
+ANNOTATION_TEST_FILE = "FlowChart/FlowChart_test.txt"
 
 
 def seperate_train_test(test_ratio):
@@ -27,14 +29,20 @@ def empty_folder(folder):
     for f in files:
         os.remove(f)
 
+def empty_file(file):
+    open(file, 'w').close()
+
 def clear_all_folders():
     empty_folder(DEST_TRAIN_IMAGE_FOLDER)
     empty_folder(DEST_TEST_IMAGE_FOLDER)
     empty_folder(DEST_ANNOTATION_TRAIN_FOLDER)
     empty_folder(DEST_ANNOTATION_TEST_FOLDER)
+    empty_file(ANNOTATION_TRAIN_FILE)
+    empty_file(ANNOTATION_TEST_FILE)
 
 def re_shuffle_train_test(test_ratio = 0.2):
-    clear_all_folders()
+    # clear_all_folders()
+    print("reshuffling data...")
     seperate_train_test(test_ratio)
 
 

@@ -26,14 +26,14 @@ def parseSingleXML(xml_file):
     symbols = root.find("symbols")
     res = ""
     for i, obj in enumerate(symbols.iter("symbol")):
-        print(i, obj.attrib["name"])
+        # print(i, obj.attrib["name"])
         class_name = obj.attrib["name"]
         if class_name not in class_names:
             class_names.append(class_name)
         class_id = class_names.index(class_name)
         bbox = obj.find("bounds")
-        print(bbox.attrib)
-        [xmin, ymin, xmax, ymax] = xywh_to_minmax(float(bbox.attrib["x"]), float(bbox.attrib["y"]), float(bbox.attrib["width"]), float(bbox.attrib["height"]))
+        # print(bbox.attrib)
+        [xmin, ymin, xmax, ymax] = xywh_to_minmax(int(bbox.attrib["x"]), int(bbox.attrib["y"]), int(bbox.attrib["width"]), int(bbox.attrib["height"]))
         bbox_info = (str(xmin)+','
                       +str(ymin)+','
                       +str(xmax)+','
@@ -56,7 +56,8 @@ def XML_to_YOLOv3():
     annotation_files = [ANNOTATION_TRAIN_FILE,ANNOTATION_TEST_FILE]
     # extract annotations for test and train, write this info into annotation txt file
     for i, folder in enumerate(['train','test']):
-        annotation_path = os.path.join(os.getcwd(),ANNOTATION_DIR,folder)   
+        annotation_path = os.path.join(os.getcwd(),ANNOTATION_DIR,folder) 
+        print("extracting %s xml annotation into txt file..." %folder)  
         with open(annotation_files[i], "w") as file:
             ParseAllXML(annotation_path, file, img_folders[i])
 
