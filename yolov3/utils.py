@@ -189,8 +189,8 @@ def get_arrow_head_tail(roi):
     return None
 
 def get_relationships(objects):
-    text2shape = {}     # [textID: shapeID]
-    arrow2shapes = {}    # [arrowID: (headShapeID, tailShapeID)]
+    text2obj = {}     # { [textID: shapeID] ... }; where obj can be shape or arrow
+    arrow2shapes = {}    # { [arrowID: (headShapeID, tailShapeID)] ... }
 
     texts, shapes, arrows = [], [], []
     for obj in objects:
@@ -209,8 +209,12 @@ def get_relationships(objects):
         for shape in shapes:
             sID, sx1, sy1, sx2, sy2 = shape[0], shape[1], shape[2], shape[3], shape[4]
             if tx1 > sx1 and ty1 > sy1 and tx2 < sx2 and ty2 < sy2:     # text is inside shape
-                text2shape[tID] = sID
+                text2obj[tID] = sID
                 break
+
+    # TODO: match text to arrow
+    # For remaining texts not matched to a shape, find nearest arrow
+    # Add relationship to text2shape dictionary
 
     # get middle point of each shape
     # can optimize by placing this above in the other shape FOR loop, but eh, whatever...
@@ -232,7 +236,7 @@ def get_relationships(objects):
         
         arrow2shapes[aID] = (headShapeID, tailShapeID)
         
-    return text2shape, arrow2shapes
+    return text2obj, arrow2shapes
         
 def get_midpoint(obj):
     # (id, x1, y1, x2, y2, class, confidence)
@@ -242,6 +246,59 @@ def get_midpoint(obj):
 def euclidean(p, q):
     x1, y1, x2, y2 = p[0], p[1], q[0], q[1]
     return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+def get_arrow_flow(arrow2shape, objects):
+    # { [arrowID: (headShapeID, tailShapeID)] ... }
+
+    heads, tails = set(), set()
+
+    keys = list(arrow2shape.keys())
+    values = list(arrow2shape.values())
+    for value in values:
+        heads.add(value[0])
+        tails.add(value[1])
+
+    ends = heads - tails  # find all head shape Ids not used as tails
+    starts = tails - heads    # find all tail shape Ids not used as heads
+    start_id = get_terminator_id(starts, objects)
+    end_id = get_terminator_id(ends, objects)
+    if start_id is None or end_id is None:
+        raise Exception("No start and/or end terminator was identified")
+
+    # get_flow(start_id, keys, values, flow)
+    root = get_arrows(start_id, keys, values)[0]   # root arrow; view arrows as nodes
+    return get_tree(root, arrow2shape, keys, values, [])
+
+def get_terminator_id(id_set, objects):
+    # find id that is a terminator
+    for id in id_set:
+        # [(id, x1, y1, x2, y2, class, confidence)...]
+        if objects[id][5] == Object.Terminator.value:
+            return id
+    return None
+
+def get_tree(node, arrow2shape, keys, values, tree):
+    # each node is an arrow id
+    curr_head = arrow2shape[node][0]
+    next_arrows = get_arrows(curr_head, keys, values)
+
+    tree.append(node)
+    if len(next_arrows) == 0:  # base case
+        return tree
+
+    # recursive call per child
+    for next_arrow in next_arrows:
+        tree = get_tree(next_arrow, arrow2shape, keys, values, tree)
+    return tree
+
+def get_arrows(obj_id, keys, values):
+    # get arrows that use current obj_id as a tail
+    next_arrows = []
+    for i, value in enumerate(values):
+        if obj_id == value[1]:      # obj is a tail
+            arrow_id = keys[i]      # get id of arrow connected to obj
+            next_arrows.append(arrow_id)
+    return next_arrows
 
 def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False, show_obj_id=False):
     objects = []
