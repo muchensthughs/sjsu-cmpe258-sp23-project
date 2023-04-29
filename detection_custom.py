@@ -19,10 +19,14 @@ from yolov3.utils import detect_image, detect_realtime, detect_video, \
                          get_relationships, get_arrow_flow
 from yolov3.configs import *
 from yolov3.yolov4 import Create_Yolo
+from tools.draw_flowchart import draw_from_detection
 
 # Change input image
-#default = "./FlowChart/FlowChart_test/writer000_fc_011.png"
+# default = "./FlowChart/FlowChart_test/writer003_fc_002.png"
+# default = "./FlowChart/FlowChart_test/writer018_fc_011b.png"
+# default = "./FlowChart/FlowChart_test/writer000_fc_011.png"
 default = "./FlowChart/FlowChart_test/writer000_fc_019.png"
+
 image_path = default
 if len(sys.argv) > 1:
     image_path = sys.argv[1]
@@ -39,7 +43,8 @@ else:
 
 yolo = Create_Yolo(input_size=YOLO_INPUT_SIZE, CLASSES=TRAIN_CLASSES)
 yolo.load_weights("./checkpoints/yolov4_custom_Tiny")
-image, original_image, objects = detect_image(yolo, image_path, "out.png", input_size=YOLO_INPUT_SIZE, show=False, CLASSES=TRAIN_CLASSES, rectangle_colors=(255,0,0), show_obj_id=False)
+image, original_image, objects = detect_image(yolo, image_path, "out.png", input_size=YOLO_INPUT_SIZE, show=False, CLASSES=TRAIN_CLASSES, rectangle_colors=(255,0,0), show_obj_id=True)
+
 # print("\nObjects:")
 # print(objects) # [(id, x1, y1, x2, y2, class, confidence)...]
 
@@ -52,3 +57,5 @@ print(arrow2shape)  # { [arrowID: (headShapeID, tailShapeID)] ... }
 arrow_flow = get_arrow_flow(arrow2shape, objects)
 print("\nArrow flow")
 print(arrow_flow)
+
+draw_from_detection(objects, arrow2shape)
