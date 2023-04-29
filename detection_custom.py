@@ -59,4 +59,4 @@ arrow_flow = get_arrow_flow(arrow2shape, objects)
 print("\nArrow flow")
 print(arrow_flow)       # [ arrowId_1, arrowId_2, ... arrowId_N ]
 
-draw_from_detection(objects, arrow2shape)
+draw_from_detection(objects, arrow2shape, text2obj, original_image)

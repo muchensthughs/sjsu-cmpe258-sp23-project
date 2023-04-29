@@ -1,6 +1,8 @@
 import schemdraw
 from schemdraw import flow
 from enum import Enum
+from tools.extract_text import detectText
+import pytesseract
 
 ## Input: result of detection
 ##     objects: [(id, x1, y1, x2, y2, classname, confidence)...(id, x1, y1, x2, y2, classname, confidence, head_coord, tail_coord)]
@@ -80,7 +82,7 @@ class Direction(Enum):
     DOWN = 'N'
     RIGHT = 'W'
     LEFT = 'E'
-     
+  
 def getDirection(head, tail):
     dx = float(head[0]) - float(tail[0])
     dy = float(head[1])- float(tail[1])
@@ -92,21 +94,18 @@ def getDirection(head, tail):
     if dy >= 0 and abs(gradient) > 1: return Direction.DOWN
     if dy <= 0 and abs(gradient) > 1: return Direction.UP
 
-def drawShape(obj, d, in_direction = None):
+def drawShape(obj, text, d):
     cls_name = obj[5]
-    if in_direction is not None:
-        print('direction:')
-        print(in_direction.value)
     if cls_name == 'data':
-            d += (e := flow.Data().label(''))
+            d += (e := flow.Data().label(text))
     elif cls_name == 'decision':
-            d += (e := flow.Decision().label(''))
+            d += (e := flow.Decision().label(text))
     elif cls_name == 'process':
-            d += (e := flow.Box().label(''))
+            d += (e := flow.Box().label(text))
     elif cls_name == 'terminator':
-            d += (e := flow.Start().label(''))
+            d += (e := flow.Start().label(text))
     elif cls_name == 'connection':
-            d += (e := flow.Circle(r=.5).label(''))
+            d += (e := flow.Circle(r=.5).label(text))
     return e
 
 def drawArrow(direction, tail, d):
@@ -130,12 +129,18 @@ def wireArrow(direction, tail, head, d):
     elif direction == Direction.LEFT:
         d += flow.Wire('z', k=-1, arrow='->').at(tail.W).to(head.E)
         
-     
+def identifyTextFromShape(obj_map, text2shape, shapeId, original_image):
+    textObj = None
+    for textId in text2shape:
+        if text2shape[textId] == shapeId: 
+            textObj = obj_map[textId]
+            break
+    return detectText(textObj, original_image)
 
 ## with schemdraw we can not specify position, we can only draw graph based on the flow relationships
 ## Assume shapes are all connected by arrows...
 ## we need to associate shapes in the graph with the object id
-def draw_from_detection(objects, arrow2shape):
+def draw_from_detection(objects, arrow2shape, text2shape, original_image):
     # convert objects into map 
     obj_map = {}
     for obj in objects:
@@ -166,7 +171,8 @@ def draw_from_detection(objects, arrow2shape):
             elif (tail_id in shape_map and head_id not in shape_map):
                 tail = shape_map[tail_id]
                 drawArrow(direction, tail, d)
-                head = drawShape(obj_map[head_id], d)
+                text = identifyTextFromShape(obj_map, text2shape, head_id, original_image)
+                head = drawShape(obj_map[head_id], text, d)
                 shape_map[head_id] = head
                 arrow_queue.pop(0) 
             elif (tail_id not in shape_map and head_id in shape_map):
@@ -175,10 +181,12 @@ def draw_from_detection(objects, arrow2shape):
                 arrow_queue.append(arrow)
             else:
                 if (obj_map[tail_id][5] == 'terminator' or obj_map[tail_id][5] == 'connection'): 
-                    tail = drawShape(obj_map[tail_id], d)
+                    text = identifyTextFromShape(obj_map, text2shape, tail_id, original_image)
+                    tail = drawShape(obj_map[tail_id], text, d)
                     shape_map[tail_id] = tail 
                     drawArrow(direction, tail, d)
-                    head = drawShape(obj_map[head_id], d)
+                    text = identifyTextFromShape(obj_map, text2shape, head_id, original_image)
+                    head = drawShape(obj_map[head_id], text, d)
                     shape_map[head_id] = head
                     arrow_queue.pop(0)
                 else:
