@@ -54,4 +54,4 @@ print(text2shape)
 print("Arrow-shape relationships")
 print(arrow2shape)
 
-draw_from_detection(objects, arrow2shape)
+draw_from_detection(objects, arrow2shape, text2shape, original_image)
