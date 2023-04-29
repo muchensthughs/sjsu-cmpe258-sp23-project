@@ -243,7 +243,7 @@ def euclidean(p, q):
     x1, y1, x2, y2 = p[0], p[1], q[0], q[1]
     return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
-def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False):
+def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False, show_obj_id=False):
     objects = []
     obj_index = 0
     NUM_CLASS = read_class_names(CLASSES)
@@ -279,7 +279,6 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
         else:
             # (id, x1, y1, x2, y2, class, confidence)
             objects.append((obj_index, x1, y1, x2, y2, NUM_CLASS[class_ind], score))
-        obj_index += 1
 
         # put object rectangle
         cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, bbox_thick*2)
@@ -292,6 +291,9 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
 
             try:
                 label = "{}".format(NUM_CLASS[class_ind]) + score_str
+                if show_obj_id:
+                    label += " id:" + str(obj_index)
+                
             except KeyError:
                 print("You received KeyError, this might be that you are trying to use yolo original weights")
                 print("while using custom classes, if using custom model in configs.py set YOLO_CUSTOM_WEIGHTS = True")
@@ -305,6 +307,8 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
             # put text above rectangle
             cv2.putText(image, label, (x1, y1-4), cv2.FONT_HERSHEY_COMPLEX_SMALL,
                         fontScale, Text_colors, bbox_thick, lineType=cv2.LINE_AA)
+        
+        obj_index += 1
 
     return image, objects
 
@@ -409,7 +413,7 @@ def postprocess_boxes(pred_bbox, original_image, input_size, score_threshold):
     return np.concatenate([coors, scores[:, np.newaxis], classes[:, np.newaxis]], axis=-1)
 
 
-def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLASSES=YOLO_COCO_CLASSES, score_threshold=0.3, iou_threshold=0.45, rectangle_colors=''):
+def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLASSES=YOLO_COCO_CLASSES, score_threshold=0.5, iou_threshold=0.45, rectangle_colors='', show_obj_id=False):
     original_image      = cv2.imread(image_path)
     original_image      = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
     original_image      = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
@@ -433,7 +437,7 @@ def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLAS
     bboxes = postprocess_boxes(pred_bbox, original_image, input_size, score_threshold)
     bboxes = nms(bboxes, iou_threshold, method='nms')
 
-    image, objects = draw_bbox(original_image, bboxes, CLASSES=CLASSES, rectangle_colors=rectangle_colors)
+    image, objects = draw_bbox(original_image, bboxes, show_obj_id=show_obj_id, CLASSES=CLASSES, rectangle_colors=rectangle_colors)
     # CreateXMLfile("XML_Detections", str(int(time.time())), original_image, bboxes, read_class_names(CLASSES))
 
     if output_path != '': cv2.imwrite(output_path, image)
