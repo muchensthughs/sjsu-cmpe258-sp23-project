@@ -148,7 +148,7 @@ def draw_from_detection(objects, arrow2shape):
     # for each arrow, draw it's connecting tail shape, then arrow, then head shape
     with schemdraw.Drawing(file='fc_drawing.jpg') as d:
         while len(arrow_queue) > 0:
-            print(arrow_queue)
+            # print(arrow_queue)
             arrow = arrow_queue[0]
             arrow_id = arrow[0]
             head_id = arrow[1] 
