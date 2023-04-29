@@ -11,13 +11,24 @@
 from multiprocessing import Process, Queue, Pipe
 import cv2
 import time
+import math
 import random
 import colorsys
 import numpy as np
 import tensorflow as tf
+from enum import Enum
 from yolov3.configs import *
 from yolov3.yolov4 import *
 from tensorflow.python.saved_model import tag_constants
+
+class Object(Enum):
+    Text = 'text'
+    Arrow = 'arrow'
+    Data = 'data'
+    Decision = 'decision'
+    Process = 'process'
+    Terminator = 'terminator'
+    Connection = 'connection'
 
 def load_yolo_weights(model, weights_file):
     tf.keras.backend.clear_session() # used to reset layer names
@@ -126,8 +137,115 @@ def image_preprocess(image, target_size, gt_boxes=None):
         gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
         return image_paded, gt_boxes
 
+# Solution from: https://stackoverflow.com/questions/66718462/how-to-detect-different-types-of-arrows-in-image
+def arrow_kmeans(y, x):
+    y = y.reshape(-1, 1)
+    x = x.reshape(-1, 1)
+    z = np.hstack((x, y))
+    points = np.float32(z)
 
-def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False):   
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+    _, label, center = cv2.kmeans(points, 2, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    count1 = np.count_nonzero(label)
+    count2 = np.shape(label)[0] - count1
+
+    maxCluster = 0
+    if count1 > count2:
+        maxCluster = 1
+
+    head = None
+    tail = None
+    rows, cols = center.shape
+    if cols >= 2:
+        for i in range(rows):
+            pointX = int(center[i][0])
+            pointY = int(center[i][1])
+            if i == maxCluster:
+                head = (pointX, pointY)
+            else:
+                tail = (pointX, pointY)
+    return head, tail
+
+# Solution from: https://stackoverflow.com/questions/66718462/how-to-detect-different-types-of-arrows-in-image
+def get_arrow_head_tail(roi):
+    roi = 255 - cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    pad = 5
+    roi = cv2.copyMakeBorder(roi, pad, pad, pad, pad, cv2.BORDER_CONSTANT)
+    roi = cv2.ximgproc.thinning(roi, None, 1)
+    _, roi = cv2.threshold(roi, 127, 10, cv2.THRESH_BINARY)
+
+    kernel = np.array([[1, 1, 1],
+                       [1, 10, 1],
+                       [1, 1, 1]])
+
+    roi = cv2.filter2D(roi, -1, kernel)
+    roi = np.where(roi == 110, 225, 0)
+    roi = roi.astype(np.uint8)
+    y, x = roi.nonzero()
+    if len(x) > 0 or len(y) > 0:
+        head, tail = arrow_kmeans(y, x)
+        if head is not None and tail is not None:
+            return (head, tail)
+    return None
+
+def get_relationships(objects):
+    text2shape = {}     # [textID: shapeID]
+    arrow2shapes = {}    # [arrowID: (headShapeID, tailShapeID)]
+
+    texts, shapes, arrows = [], [], []
+    for obj in objects:
+        obj_class = obj[5]
+        if obj_class == Object.Arrow.value:
+            arrows.append(obj)
+        elif obj_class == Object.Text.value:
+            texts.append(obj)
+        else:
+            shapes.append(obj)
+            
+    # match text to shape
+    # (id, x1, y1, x2, y2, class, confidence)
+    for text in texts:
+        tID, tx1, ty1, tx2, ty2  = text[0], text[1], text[2], text[3], text[4]
+        for shape in shapes:
+            sID, sx1, sy1, sx2, sy2 = shape[0], shape[1], shape[2], shape[3], shape[4]
+            if tx1 > sx1 and ty1 > sy1 and tx2 < sx2 and ty2 < sy2:     # text is inside shape
+                text2shape[tID] = sID
+                break
+
+    # get middle point of each shape
+    # can optimize by placing this above in the other shape FOR loop, but eh, whatever...
+    mids = [(shape[0], get_midpoint(shape)) for shape in shapes]  # (shapeID, shapeMiddle_coord)
+
+    # match arrow to shapes
+    # (id, x1, y1, x2, y2, class, confidence, head, tail)
+    for arrow in arrows:
+        aID, head, tail = arrow[0], arrow[7], arrow[8]
+
+        dists = {} # [shapeID: (toHeadDist, toTailDist)
+        for mid in mids:
+            dists[mid[0]] = (euclidean(head, mid[1]), euclidean(tail, mid[1]))
+
+        # get head shape ID
+        headShapeID = sorted(dists.items(), key=lambda item: item[1][0])[0][0]
+        # get tail shape ID
+        tailShapeID = sorted(dists.items(), key=lambda item: item[1][1])[0][0]
+        
+        arrow2shapes[aID] = (headShapeID, tailShapeID)
+        
+    return text2shape, arrow2shapes
+        
+def get_midpoint(obj):
+    # (id, x1, y1, x2, y2, class, confidence)
+    x1, y1, x2, y2 = obj[1], obj[2], obj[3], obj[4]
+    return ((x1 + x2) * 0.5, (y1 + y2) * 0.5)
+
+def euclidean(p, q):
+    x1, y1, x2, y2 = p[0], p[1], q[0], q[1]
+    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_confidence = True, Text_colors=(255,255,0), rectangle_colors='', tracking=False, show_obj_id=False):
+    objects = []
+    obj_index = 0
     NUM_CLASS = read_class_names(CLASSES)
     num_classes = len(NUM_CLASS)
     image_h, image_w, _ = image.shape
@@ -150,6 +268,18 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
         fontScale = 0.75 * bbox_thick
         (x1, y1), (x2, y2) = (coor[0], coor[1]), (coor[2], coor[3])
 
+        if NUM_CLASS[class_ind] == 'arrow':
+            arrow_info = get_arrow_head_tail(image[y1:y2, x1:x2])
+            (hx, hy), (tx, ty) = arrow_info[0], arrow_info[1]
+            cv2.circle(image, (x1+hx, y1+hy), 10, (0, 0, 255), -1) # red head
+            cv2.circle(image, (x1+tx, y1+ty), 10, (0, 255, 0), -1) # green tail
+            # (id, x1, y1, x2, y2, class, confidence, head_coord, tail_coord)
+            objects.append((obj_index, x1, y1, x2, y2, NUM_CLASS[class_ind], 
+                            score, (x1+hx, y1+hy), (x1+tx, y1+ty)))
+        else:
+            # (id, x1, y1, x2, y2, class, confidence)
+            objects.append((obj_index, x1, y1, x2, y2, NUM_CLASS[class_ind], score))
+
         # put object rectangle
         cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, bbox_thick*2)
 
@@ -161,6 +291,9 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
 
             try:
                 label = "{}".format(NUM_CLASS[class_ind]) + score_str
+                if show_obj_id:
+                    label += " id:" + str(obj_index)
+                
             except KeyError:
                 print("You received KeyError, this might be that you are trying to use yolo original weights")
                 print("while using custom classes, if using custom model in configs.py set YOLO_CUSTOM_WEIGHTS = True")
@@ -174,8 +307,10 @@ def draw_bbox(image, bboxes, CLASSES=YOLO_COCO_CLASSES, show_label=True, show_co
             # put text above rectangle
             cv2.putText(image, label, (x1, y1-4), cv2.FONT_HERSHEY_COMPLEX_SMALL,
                         fontScale, Text_colors, bbox_thick, lineType=cv2.LINE_AA)
+        
+        obj_index += 1
 
-    return image
+    return image, objects
 
 
 def bboxes_iou(boxes1, boxes2):
@@ -278,7 +413,7 @@ def postprocess_boxes(pred_bbox, original_image, input_size, score_threshold):
     return np.concatenate([coors, scores[:, np.newaxis], classes[:, np.newaxis]], axis=-1)
 
 
-def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLASSES=YOLO_COCO_CLASSES, score_threshold=0.3, iou_threshold=0.45, rectangle_colors=''):
+def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLASSES=YOLO_COCO_CLASSES, score_threshold=0.5, iou_threshold=0.45, rectangle_colors='', show_obj_id=False):
     original_image      = cv2.imread(image_path)
     original_image      = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
     original_image      = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
@@ -302,7 +437,7 @@ def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLAS
     bboxes = postprocess_boxes(pred_bbox, original_image, input_size, score_threshold)
     bboxes = nms(bboxes, iou_threshold, method='nms')
 
-    image = draw_bbox(original_image, bboxes, CLASSES=CLASSES, rectangle_colors=rectangle_colors)
+    image, objects = draw_bbox(original_image, bboxes, show_obj_id=show_obj_id, CLASSES=CLASSES, rectangle_colors=rectangle_colors)
     # CreateXMLfile("XML_Detections", str(int(time.time())), original_image, bboxes, read_class_names(CLASSES))
 
     if output_path != '': cv2.imwrite(output_path, image)
@@ -314,7 +449,7 @@ def detect_image(Yolo, image_path, output_path, input_size=416, show=False, CLAS
         # To close the window after the required kill value was provided
         cv2.destroyAllWindows()
         
-    return image
+    return image, original_image, objects
 
 def Predict_bbox_mp(Frames_data, Predicted_data, Processing_times):
     gpus = tf.config.experimental.list_physical_devices('GPU')
