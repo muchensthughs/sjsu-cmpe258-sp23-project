@@ -37,7 +37,7 @@ else:
 
 yolo = Create_Yolo(input_size=YOLO_INPUT_SIZE, CLASSES=TRAIN_CLASSES)
 yolo.load_weights("./checkpoints/yolov4_custom_Tiny")
-image, original_image, objects = detect_image(yolo, image_path, "out.png", input_size=YOLO_INPUT_SIZE, show=False, CLASSES=TRAIN_CLASSES, rectangle_colors=(255,0,0))
+image, original_image, objects = detect_image(yolo, image_path, "out.png", input_size=YOLO_INPUT_SIZE, show=False, CLASSES=TRAIN_CLASSES, rectangle_colors=(255,0,0), show_obj_id=False)
 
 # print("Objects:")
 # print(objects) # [(id, x1, y1, x2, y2, class, confidence)...]
