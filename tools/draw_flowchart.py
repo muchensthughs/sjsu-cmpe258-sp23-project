@@ -94,18 +94,44 @@ def getDirection(head, tail):
     if dy >= 0 and abs(gradient) > 1: return Direction.DOWN
     if dy <= 0 and abs(gradient) > 1: return Direction.UP
 
-def drawShape(obj, text, d):
+def drawShape(obj, text, d, direction = None):
     cls_name = obj[5]
+    text = ''
+    anchor_point = ''
+    if direction == Direction.RIGHT:
+        anchor_point = 'W'
+    elif direction == Direction.LEFT:
+        anchor_point = 'E' 
+    elif direction == Direction.DOWN:
+        anchor_point = 'N'
+    elif direction == Direction.UP:
+        anchor_point = 'S'
+
     if cls_name == 'data':
-            d += (e := flow.Data().label(text))
+            if anchor_point == '':
+                d += (e := flow.Data().label(text))
+            else:
+                d += (e := flow.Data().anchor(anchor_point).label(text))
     elif cls_name == 'decision':
-            d += (e := flow.Decision().label(text))
+            if anchor_point == '':
+                d += (e := flow.Decision().label(text))
+            else:
+                d += (e := flow.Decision().anchor(anchor_point).label(text))
     elif cls_name == 'process':
-            d += (e := flow.Box().label(text))
+            if anchor_point == '':
+                d += (e := flow.Box().label(text))
+            else:
+                d += (e := flow.Box().anchor(anchor_point).label(text))
     elif cls_name == 'terminator':
-            d += (e := flow.Start().label(text))
+            if anchor_point == '':
+                d += (e := flow.Start().label(text))
+            else:
+                d += (e := flow.Start().anchor(anchor_point).label(text))
     elif cls_name == 'connection':
-            d += (e := flow.Circle(r=.5).label(text))
+            if anchor_point == '':
+                d += (e := flow.Circle(r=.5).label(text))
+            else:
+                d += (e := flow.Circle(r=.5).anchor(anchor_point).label(text))
     return e
 
 def drawArrow(direction, tail, d):
@@ -172,7 +198,7 @@ def draw_from_detection(objects, arrow2shape, text2shape, original_image):
                 tail = shape_map[tail_id]
                 drawArrow(direction, tail, d)
                 text = identifyTextFromShape(obj_map, text2shape, head_id, original_image)
-                head = drawShape(obj_map[head_id], text, d)
+                head = drawShape(obj_map[head_id], text, d, direction)
                 shape_map[head_id] = head
                 arrow_queue.pop(0) 
             elif (tail_id not in shape_map and head_id in shape_map):
@@ -186,7 +212,7 @@ def draw_from_detection(objects, arrow2shape, text2shape, original_image):
                     shape_map[tail_id] = tail 
                     drawArrow(direction, tail, d)
                     text = identifyTextFromShape(obj_map, text2shape, head_id, original_image)
-                    head = drawShape(obj_map[head_id], text, d)
+                    head = drawShape(obj_map[head_id], text, d, direction)
                     shape_map[head_id] = head
                     arrow_queue.pop(0)
                 else:
