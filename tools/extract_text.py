@@ -13,6 +13,8 @@ def erode(image):
 
 # text_obj (id, x1, y1, x2, y2, classname, confidence)
 def detectText(text_obj, img):
+    if text_obj is None:
+        return " "
     x1 = text_obj[1]
     y1 = text_obj[2]
     x2 = text_obj[3]
